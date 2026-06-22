@@ -37,7 +37,11 @@ float dificuldade = 1.0;
 
 ALLEGRO_COLOR BKG_COLOR;
 ALLEGRO_FONT *FONT_32;
-ALLEGRO_SAMPLE *sample_explosao = NULL;
+ALLEGRO_SAMPLE *pontos = NULL;
+ALLEGRO_SAMPLE *gameover = NULL;
+ALLEGRO_AUDIO_STREAM *fundo = NULL;
+
+
 
 typedef struct Tiro {
 	float x, y;
@@ -184,7 +188,6 @@ int vecolisao(float x1, float y1, float raio1, float x2, float y2, float raio2) 
 }
 
 
-
 void desenharInimigos(Enemy *enemies) {
 	for(int i=0; i<NUM_ENEMIES; i++) {
 		if(enemies[i].active)
@@ -221,7 +224,7 @@ void atualizarInimigos(Enemy *enemies) {
 //mata inimigo 
 
 void mata (Hero *heroi, Enemy *enemies, int numInimi) {
-	al_play_sample(sample_explosao, 1.0, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
+	al_play_sample(pontos, 1.0, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
     enemies[numInimi].active = 0; 
     heroi->score += (int)enemies[numInimi].raio; 
     
@@ -238,6 +241,7 @@ void mata (Hero *heroi, Enemy *enemies, int numInimi) {
     enemies[numInimi].ship.y = -(rand() % 400 + 50);
     enemies[numInimi].active = 1; 
 }
+
 void colisaoComCampo(Hero *h, Enemy *enemies) {
     if(h->ship.tiro.modo != TIRO_ATIVO) return;
 
@@ -303,9 +307,11 @@ int pontuacaoRecorde(float pontuacao) {
 
 
 int heroiMorre(Hero *h, Enemy *enemies) {
+	float centroX = h->ship.x;
+    float centroY = h->ship.y + HERO_H / 2.0;
     for(int i = 0; i <NUM_ENEMIES; i++) {
         if(enemies[i].active) {
-            int colisao = vecolisao(h->ship.x, h->ship.y, HERO_W/2, enemies[i].ship.x, enemies[i].ship.y, enemies[i].raio);
+            int colisao = vecolisao(centroX, centroY, HERO_W/2, enemies[i].ship.x, enemies[i].ship.y, enemies[i].raio);
             if(colisao) {
                 return 0; //heroimpeereu
             }
@@ -384,8 +390,13 @@ int main(int argc, char **argv){
 	al_install_audio();
     al_init_acodec_addon();
     al_reserve_samples(10);
-	sample_explosao = al_load_sample("explosao.wav");
-   
+    pontos= al_load_sample("musicas/pontos.wav");
+	gameover = al_load_sample("musicas/gameover.wav");
+
+    fundo = al_load_audio_stream("musicas/fundo.wav", 4, 2048);
+	al_attach_audio_stream_to_mixer(fundo, al_get_default_mixer());
+    al_set_audio_stream_playmode(fundo, ALLEGRO_PLAYMODE_LOOP);
+    al_set_audio_stream_gain(fundo, 0.6);
 
 
 	//registra na fila os eventos de tela (ex: clicar no X na janela)
@@ -443,8 +454,11 @@ int main(int argc, char **argv){
 			playing = heroiMorre(&Hero, Enemies);
 
 			//pausa o jogo por 3 segundos se o jogador morrer
-			if(!playing)
-				al_rest(3);
+			if(!playing){
+			al_set_audio_stream_playing(fundo, false);
+			al_play_sample(gameover, 1.0, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
+			al_rest(3);
+			}
 
 		}
 		//se o tipo de evento for o fechamento da tela (clique no x da janela)
@@ -534,7 +548,8 @@ int main(int argc, char **argv){
 	al_destroy_timer(timer);
 	al_destroy_display(display);
 	al_destroy_event_queue(event_queue);
-	al_destroy_sample(sample_explosao);
- 
+	al_destroy_sample(pontos);
+	al_destroy_sample(gameover);
+	al_destroy_audio_stream(fundo);
 	return 0;
 }
