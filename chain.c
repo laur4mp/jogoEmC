@@ -116,8 +116,8 @@ void initHero(Hero *s) {
 }
 
 void drawScenario(Hero s) {
-
 	char score_txt[5];
+
 	if(fundoimg != NULL) {
         al_draw_scaled_bitmap(fundoimg, 
             0, 0, al_get_bitmap_width(fundoimg), al_get_bitmap_height(fundoimg), // Origem (tamanho total da imagem)
@@ -210,9 +210,9 @@ void desenharInimigos(Enemy *enemies) {
 void gerarInimigos(Enemy *enemies) {
 
 	for(int i=0; i<NUM_ENEMIES; i++) {
-		enemies[i].raio = 20 + rand()%30;
+		enemies[i].raio = 20 + rand()%30; 
 		enemies[i].active = 1;
-		enemies[i].ship.vel = 1 + (rand() % 3);
+		enemies[i].ship.vel = 1 + (rand() % 3);   //usada para invimigos com velocidadee difernetes
 		enemies[i].ship.cor = al_map_rgb(100 + rand()%156, 100 + rand()%156, 100 + rand()%156);
 		enemies[i].ship.x = rand()%(SCREEN_W - (int)enemies[i].raio*2) + enemies[i].raio;
 		enemies[i].ship.y = -(rand() % 800 + 50); //posicao inicial aleatoria acima da tela e desce com a velocidade programada, assim n desce tudo de uma vez
@@ -224,7 +224,7 @@ void atualizarInimigos(Enemy *enemies) {
 	
 	for(int i=0; i<NUM_ENEMIES; i++) {
 		if(enemies[i].active) {
-			float velocidade = (enemies[i].ship.vel * 0.4) * dificuldade;
+			float velocidade = (enemies[i].ship.vel * 0.5) * dificuldade;
 			enemies[i].ship.y += velocidade;
 		}
 		if(enemies[i].ship.y > SCREEN_H + enemies[i].raio) { //sair volta por cima
@@ -258,8 +258,11 @@ void mata (Hero *heroi, Enemy *enemies, int numInimi) {
     enemies[numInimi].active = 1; 
 }
 
+
 void colisaoComCampo(Hero *h, Enemy *enemies) {
-    if(h->ship.tiro.modo != TIRO_ATIVO) return;
+    if(h->ship.tiro.modo != TIRO_ATIVO){
+		return;
+	} 
 
     for(int i = 0; i < NUM_ENEMIES; i++) {
         if(enemies[i].active) {
@@ -278,6 +281,7 @@ void colisaoComCampo(Hero *h, Enemy *enemies) {
 //vai dar trabalhao
 
 void reacaoCadeia(Hero *heroi, Enemy *enemies) {
+	
     for(int i = 0; i < NUM_ENEMIES; i++) {
         if(enemies[i].explosao.modo == TIRO_ATIVO) {
 
@@ -303,14 +307,22 @@ void reacaoCadeia(Hero *heroi, Enemy *enemies) {
 }
 
 
-int pontuacaoRecorde(float pontuacao) {
+float recordeAtual() {
     FILE *file = fopen("recorde.txt", "r");
-    int recordeAtual = 0;
+    float recorde = 0.0;
+    
     if(file != NULL) {
-        fscanf(file, "%f", &recordeAtual);
+        fscanf(file, "%f", &recorde);
         fclose(file);
     }
-    if(pontuacao > recordeAtual) {
+	 fclose(file);
+    return recorde;
+}
+
+int pontuacaoRecorde(float pontuacao) {
+    FILE *file = fopen("recorde.txt", "r");
+    float recorde = recordeAtual();
+    if(pontuacao > recorde) {
         file = fopen("recorde.txt", "w");
         if(file != NULL) {
             fprintf(file, "%f", pontuacao);
@@ -318,6 +330,7 @@ int pontuacaoRecorde(float pontuacao) {
 			return 1;
         }
     }
+	fclose(file);
 	return 0;
 }
 
@@ -561,14 +574,18 @@ int main(int argc, char **argv){
 	//procedimentos de fim de jogo (fecha a tela, limpa a memoria, etc)
 	int bateu = pontuacaoRecorde(Hero.score); //verificar se a pontuação recorde foi batida
 
+	float recorde = recordeAtual();
 
 		char my_text[100];
 		al_clear_to_color(al_map_rgb(0,0,0));
 	 	sprintf(my_text, "Pontuação: %d", (int)Hero.score);
-		al_draw_text(FONT_32, al_map_rgb(220, 30, 0), SCREEN_W/3, SCREEN_H/2 + 50, 0, my_text);
 
-		if(bateu) {
-        al_draw_text(FONT_32, al_map_rgb(0, 255, 0), SCREEN_W/3, SCREEN_H/2 , 0, "NOVO RECORDE!");
+		al_draw_text(FONT_32, al_map_rgb(220, 30, 0), SCREEN_W/3, SCREEN_H/2  +20, 0, my_text);
+
+		al_draw_textf(FONT_32, al_map_rgb(220, 30, 0), SCREEN_W/3, SCREEN_H/2 + 55 , 0, "Recorde Atual: %d", (int)recorde);
+		
+		if(bateu) { 
+        al_draw_text(FONT_32, al_map_rgb(0, 255, 0), SCREEN_W/3, SCREEN_H/2 + 90 , 0, "NOVO RECORDE!");
         }
 
 		al_flip_display();
