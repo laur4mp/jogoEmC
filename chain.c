@@ -2,6 +2,8 @@
 
 //mingw32-make
 
+
+//jogo ta rodandoa 100 frames por segunfo
 #include <stdio.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
@@ -37,10 +39,16 @@ float dificuldade = 1.0;
 
 ALLEGRO_COLOR BKG_COLOR;
 ALLEGRO_FONT *FONT_32;
+
+//audios 
+
 ALLEGRO_SAMPLE *pontos = NULL;
 ALLEGRO_SAMPLE *gameover = NULL;
 ALLEGRO_AUDIO_STREAM *fundo = NULL;
 
+
+//imagem
+ALLEGRO_BITMAP *fundoimg = NULL;
 
 
 typedef struct Tiro {
@@ -70,7 +78,7 @@ typedef struct Enemy {
 	Ship ship;
 	float raio;
 	int active;
-	Tiro explosao; // para reaacao em cadeia se o inimigo morrer
+	Tiro explosao; // para reacao em cadeia se o inimigo morrer
 } Enemy;
 
 
@@ -110,9 +118,15 @@ void initHero(Hero *s) {
 void drawScenario(Hero s) {
 
 	char score_txt[5];
-
-	al_clear_to_color(BKG_COLOR);
-
+	if(fundoimg != NULL) {
+        al_draw_scaled_bitmap(fundoimg, 
+            0, 0, al_get_bitmap_width(fundoimg), al_get_bitmap_height(fundoimg), // Origem (tamanho total da imagem)
+            0, 0, SCREEN_W, SCREEN_H,                                             // Destino (tamanho da tela do jogo)
+            0                                                                     // Flags (nenhuma)
+        );
+    } else {
+        al_clear_to_color(BKG_COLOR);
+    }
 
 }
 
@@ -134,9 +148,7 @@ void drawHero(Hero s) {
 
 
 void updateHero(Hero *s) {
-
 	s->ship.x += s->dir_x * s->ship.vel;
-
 	s->ship.y += s->dir_y * s->ship.vel;
 
 	//bloaquear de sair da tela inicio CENTRO DO HEROI É A REFERENCIA
@@ -164,11 +176,11 @@ void updateHero(Hero *s) {
 		else
 			initTiro(&s->ship);
 	}
+
 	//diminuir pontuação do jogador
 
 	float penalidade = SCORE_PENALTY * dificuldade; 
-
-    s->score = s->score - (penalidade / FPS);
+    s->score = s->score - (penalidade / FPS); // penalidade por segundo ajustada pela dificuldade
 	if(s->score < 0) {
 		s->score = 0; 
 	}
@@ -192,9 +204,11 @@ void desenharInimigos(Enemy *enemies) {
 		if(enemies[i].active)
 			al_draw_filled_circle(enemies[i].ship.x, enemies[i].ship.y, enemies[i].raio, enemies[i].ship.cor);
 	}
-
 }
+
+
 void gerarInimigos(Enemy *enemies) {
+
 	for(int i=0; i<NUM_ENEMIES; i++) {
 		enemies[i].raio = 20 + rand()%30;
 		enemies[i].active = 1;
@@ -215,15 +229,18 @@ void atualizarInimigos(Enemy *enemies) {
 		}
 		if(enemies[i].ship.y > SCREEN_H + enemies[i].raio) { //sair volta por cima
                 enemies[i].ship.x = rand() % (SCREEN_W - (int)enemies[i].raio * 2) + enemies[i].raio;
-				enemies[i].ship.y = -(rand() % 400 + 50); //aleatoria acima da tela e desce com a velocidade programada
-            }
+				enemies[i].ship.y = - (rand() % 400 + 50); //aleatoria acima da tela e desce com a velocidade programada
+        }
 	}
 
 }
 //mata inimigo 
 
 void mata (Hero *heroi, Enemy *enemies, int numInimi) {
+
 	al_play_sample(pontos, 1.0, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
+
+
     enemies[numInimi].active = 0; 
     heroi->score += (int)enemies[numInimi].raio; 
     
@@ -232,7 +249,7 @@ void mata (Hero *heroi, Enemy *enemies, int numInimi) {
     enemies[numInimi].explosao.y = enemies[numInimi].ship.y;
     enemies[numInimi].explosao.raio = enemies[numInimi].raio; // Fixo no tamanho original
     enemies[numInimi].explosao.cor = enemies[numInimi].ship.cor; 
-    enemies[numInimi].explosao.timer = 0.7; // Duração da área de dano
+    enemies[numInimi].explosao.timer = 0.5; // Duração da área de dano
     enemies[numInimi].explosao.modo = TIRO_ATIVO;
     
 	//revive no topo
@@ -263,7 +280,7 @@ void colisaoComCampo(Hero *h, Enemy *enemies) {
 void reacaoCadeia(Hero *heroi, Enemy *enemies) {
     for(int i = 0; i < NUM_ENEMIES; i++) {
         if(enemies[i].explosao.modo == TIRO_ATIVO) {
-        
+
             al_draw_circle(enemies[i].explosao.x, enemies[i].explosao.y, enemies[i].explosao.raio, enemies[i].explosao.cor, 2); //desenha area dano
    
             enemies[i].explosao.timer = enemies[i].explosao.timer - 1.0/ FPS;
@@ -271,12 +288,12 @@ void reacaoCadeia(Hero *heroi, Enemy *enemies) {
                 enemies[i].explosao.modo = TIRO_INATIVO;
             }
 
-  
+			//verifica colisao com outros inimigos
             for(int j = 0; j < NUM_ENEMIES; j++) {
                 if(enemies[j].active && i != j) {
                     int colisao = vecolisao(enemies[i].explosao.x, enemies[i].explosao.y, enemies[i].explosao.raio, enemies[j].ship.x, enemies[j].ship.y, enemies[j].raio);
                     if(colisao) {
-                
+
                        mata(heroi, enemies, j);
                     }
                 }
@@ -290,13 +307,13 @@ int pontuacaoRecorde(float pontuacao) {
     FILE *file = fopen("recorde.txt", "r");
     int recordeAtual = 0;
     if(file != NULL) {
-        fscanf(file, "%d", &recordeAtual);
+        fscanf(file, "%f", &recordeAtual);
         fclose(file);
     }
     if(pontuacao > recordeAtual) {
         file = fopen("recorde.txt", "w");
         if(file != NULL) {
-            fprintf(file, "%d", pontuacao);
+            fprintf(file, "%f", pontuacao);
             fclose(file);
 			return 1;
         }
@@ -307,10 +324,11 @@ int pontuacaoRecorde(float pontuacao) {
 
 int heroiMorre(Hero *h, Enemy *enemies) {
 	float centroX = h->ship.x;
-    float centroY = h->ship.y + HERO_H / 2.0;
+    float centroY = h->ship.y + HERO_H / 2.0; //para o circulo do ser o centro do heroi e n o topo, assim n morre antes de encostar no inimigo
+
     for(int i = 0; i <NUM_ENEMIES; i++) {
         if(enemies[i].active) {
-            int colisao = vecolisao(centroX, centroY, HERO_W/2, enemies[i].ship.x, enemies[i].ship.y, enemies[i].raio);
+            int colisao = vecolisao(centroX, centroY, (HERO_W/2)-2, enemies[i].ship.x, enemies[i].ship.y, enemies[i].raio);
             if(colisao) {
                 return 0; //heroimpeereu
             }
@@ -319,6 +337,8 @@ int heroiMorre(Hero *h, Enemy *enemies) {
     return 1;
 }
  
+
+
 int main(int argc, char **argv){
 	srand(time(NULL));
 
@@ -372,6 +392,10 @@ int main(int argc, char **argv){
 		fprintf(stderr, "failed to load tff font module!\n");
 		return -1;
 	}
+
+	if(!al_init_image_addon()) { //inicializa o modulo allegro que entende arquivos de imagens
+        return -1;
+    }
 	
 	//carrega o arquivo arial.ttf da fonte Arial e define que sera usado o tamanho 32 (segundo parametro)
     ALLEGRO_FONT *size_32 = al_load_font("arial.ttf", 32, 1);   
@@ -396,6 +420,8 @@ int main(int argc, char **argv){
 	al_attach_audio_stream_to_mixer(fundo, al_get_default_mixer());
     al_set_audio_stream_playmode(fundo, ALLEGRO_PLAYMODE_LOOP);
     al_set_audio_stream_gain(fundo, 0.6);
+
+	fundoimg = al_load_bitmap("imagem/fundo.jpg");
 
 
 	//registra na fila os eventos de tela (ex: clicar no X na janela)
@@ -434,15 +460,18 @@ int main(int argc, char **argv){
 
 		//se o tipo de evento for um evento do temporizador, ou seja, se o tempo passou de t para t+1
 		if(ev.type == ALLEGRO_EVENT_TIMER) {
+
+			 //cada frame roda
+
 			tempoJogo += 1.0 / FPS;
 			dificuldade = 1.0 + (tempoJogo * 0.05);// 5% mais dificil, por segundo imigo cai mais rapido e a penalidade
+
 			drawScenario(Hero);
 			updateHero(&Hero);
-			drawHero(Hero);
+			drawHero(Hero); 
 
 			colisaoComCampo(&Hero, Enemies);
 			reacaoCadeia(&Hero, Enemies); 
-
 			desenharInimigos(Enemies);
 			atualizarInimigos(Enemies);
 
@@ -530,7 +559,8 @@ int main(int argc, char **argv){
 	} //fim do while
      
 	//procedimentos de fim de jogo (fecha a tela, limpa a memoria, etc)
-	int bateu = pontuacaoRecorde(Hero.score);
+	int bateu = pontuacaoRecorde(Hero.score); //verificar se a pontuação recorde foi batida
+
 
 		char my_text[100];
 		al_clear_to_color(al_map_rgb(0,0,0));
@@ -547,8 +577,13 @@ int main(int argc, char **argv){
 	al_destroy_timer(timer);
 	al_destroy_display(display);
 	al_destroy_event_queue(event_queue);
+
+	//removendo do sistema de audio
 	al_destroy_sample(pontos);
 	al_destroy_sample(gameover);
 	al_destroy_audio_stream(fundo);
+
+	// removendo do sistema de imagem
+	al_destroy_bitmap(fundoimg);
 	return 0;
 }
